@@ -36,7 +36,7 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
     if (!cameraEnabled || poseRef.current) return;
 
     const pose = new Pose({
-      locateFile: (file) =>
+      locateFile: (file: any) =>
         `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
     });
 
@@ -52,7 +52,6 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
       poseResultsRef.current = results;
       console.log("Pose results:", results.poseLandmarks?.length, "landmarks");
     });
-
 
     poseRef.current = pose;
 
@@ -162,6 +161,7 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
       if (data.score !== undefined) setCurrentScore(data.score);
     });
 
+    // Getting data from backend
     socket.on("update", (data) => {
       console.log("Rep count:", data.rep_count);
       console.log("Score:", data.score);
@@ -173,27 +173,24 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
       setCurrentScore(data.score);
       updateFeedback(data.feedback);
 
-
       if (
-    typeof data.rep_count === "number" &&
-    data.rep_count > lastRepCountRef.current
-    ) {
-    lastRepCountRef.current = data.rep_count;
+        typeof data.rep_count === "number" &&
+        data.rep_count > lastRepCountRef.current
+      ) {
+        lastRepCountRef.current = data.rep_count;
 
-    repDataRef.current.push({
-      repNumber: data.rep_count,
-      // assume backend sends 0–1 or 0–100; normalize if needed
-      score: typeof data.score === "number" ? data.score : 0,
-      notes: data.feedback
-        ? Array.isArray(data.feedback)
-          ? data.feedback
-          : [data.feedback]
-        : [],
+        repDataRef.current.push({
+          repNumber: data.rep_count,
+          // assume backend sends 0–1 or 0–100; normalize if needed
+          score: typeof data.score === "number" ? data.score : 0,
+          notes: data.feedback
+            ? Array.isArray(data.feedback)
+              ? data.feedback
+              : [data.feedback]
+            : [],
+        });
+      }
     });
-    }
-
-
-  })
 
     return () => {
       socket.disconnect();
@@ -328,6 +325,8 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
         ? Math.round(reps.reduce((sum, r) => sum + r.score, 0) / reps.length)
         : 0;
 
+    // this function is actually handleStopAnalysis in App.tsx
+    // it's passed in as a param to this component
     onStop({
       exercise,
       reps,
@@ -388,7 +387,7 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
           </div>
         )}
 
-        {/* 🔄 FLIP CAMERA BUTTON */}
+        {/* Flips Camera */}
         {cameraEnabled && (
           <button
             className="flip-button"
@@ -411,7 +410,12 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
 
       {/* Stats */}
       <div className="stat-item">
-        <span className="stat-value" style={{ display: "block", textAlign: "center" }}>{feedback}</span>
+        <span
+          className="stat-value"
+          style={{ display: "block", textAlign: "center" }}
+        >
+          {feedback}
+        </span>
       </div>
 
       <div className="stats-panel">
