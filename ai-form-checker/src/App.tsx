@@ -4,12 +4,7 @@ import CameraView from "./components/CameraView";
 import ResultsView from "./components/ResultsView";
 import "./App.css";
 
-export type Exercise =
-  | "pushups"
-  | "jumping-jacks"
-  | "pullups"
-  | "squats"
-  | "lunges";
+export type Exercise = "Push-ups" | "Jumping Jacks" | "Squats" | "Lunges";
 
 export interface RepResult {
   repNumber: number;

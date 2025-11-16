@@ -7,11 +7,10 @@ interface ExerciseSelectorProps {
 }
 
 const exercises: { id: Exercise; name: string; icon: string }[] = [
-  { id: "pushups", name: "Push-ups", icon: "" },
-  { id: "jumping-jacks", name: "Jumping Jacks", icon: "" },
-  { id: "pullups", name: "Pull-ups", icon: "" },
-  { id: "squats", name: "Squats", icon: "" },
-  { id: "lunges", name: "Lunges", icon: "" },
+  { id: "Push-ups", name: "Push-ups", icon: "" },
+  { id: "Jumping Jacks", name: "Jumping Jacks", icon: "" },
+  { id: "Squats", name: "Squats", icon: "" },
+  { id: "Lunges", name: "Lunges", icon: "" },
 ];
 
 export default function ExerciseSelector({ onStart }: ExerciseSelectorProps) {

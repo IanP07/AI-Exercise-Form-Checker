@@ -35,6 +35,8 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
   useEffect(() => {
     if (!cameraEnabled) return;
 
+    console.log(`yee haw ${exercise}`);
+
     let mounted = true;
 
     const initializeCamera = async () => {
@@ -97,7 +99,11 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
 
     socketRef.current = socket;
 
-    socket.on("connect", () => console.log("Socket.IO connected"));
+    socket.on("connect", () => {
+      console.log("Socket connected, sending exercise");
+      sendExercise();
+    });
+
     socket.on("disconnect", () => console.log("Socket.IO disconnected"));
 
     socket.on("analysis", (data: any) => {
@@ -153,6 +159,18 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
     };
 
     requestAnimationFrame(loop);
+  };
+
+  // ---------------------- Sends Exercise ----------------------
+  const sendExercise = () => {
+    if (!socketRef.current) return;
+
+    // Small JSON object
+    const data = { exercise: exercise };
+
+    // Emit to server
+    socketRef.current.emit("set_exercise", data);
+    console.log("Sent packet");
   };
 
   // ---------------------- DEMO MODE ----------------------
