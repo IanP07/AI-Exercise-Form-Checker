@@ -19,6 +19,7 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
   const poseResultsRef = useRef<any | null>(null);
   const isFlippingRef = useRef(false);
   const poseErroredRef = useRef(false);
+  const lastRepCountRef = useRef(0);
 
   const [repCount, setRepCount] = useState(0);
   const [currentScore, setCurrentScore] = useState(100);
@@ -27,6 +28,7 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
   const [useDemoMode, setUseDemoMode] = useState(true);
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [mirrorVideo, setMirrorVideo] = useState(false);
+  const [feedback, updateFeedback] = useState<string | null>(null);
   // ---------------------- MEDIAPIPE POSE SETUP ----------------------
   useEffect(() => {
     console.log("POSE EFFECT RUNNING, cameraEnabled =", cameraEnabled);
@@ -159,6 +161,39 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
       if (data.repCount !== undefined) setRepCount(data.repCount);
       if (data.score !== undefined) setCurrentScore(data.score);
     });
+
+    socket.on("update", (data) => {
+      console.log("Rep count:", data.rep_count);
+      console.log("Score:", data.score);
+      console.log("Feedback:", data.feedback);
+      console.log("Exercise:", data.exercise);
+
+      // Update your UI
+      setRepCount(data.rep_count);
+      setCurrentScore(data.score);
+      updateFeedback(data.feedback);
+
+
+      if (
+    typeof data.rep_count === "number" &&
+    data.rep_count > lastRepCountRef.current
+    ) {
+    lastRepCountRef.current = data.rep_count;
+
+    repDataRef.current.push({
+      repNumber: data.rep_count,
+      // assume backend sends 0–1 or 0–100; normalize if needed
+      score: typeof data.score === "number" ? data.score : 0,
+      notes: data.feedback
+        ? Array.isArray(data.feedback)
+          ? data.feedback
+          : [data.feedback]
+        : [],
+    });
+    }
+
+
+  })
 
     return () => {
       socket.disconnect();
@@ -375,6 +410,10 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
       </div>
 
       {/* Stats */}
+      <div className="stat-item">
+        <span className="stat-value" style={{ display: "block", textAlign: "center" }}>{feedback}</span>
+      </div>
+
       <div className="stats-panel">
         <div className="stat-item">
           <span className="stat-label">Reps Completed</span>
