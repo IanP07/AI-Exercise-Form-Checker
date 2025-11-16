@@ -1,5 +1,5 @@
-import type { WorkoutResults } from '../App';
-import './ResultsView.css';
+import type { WorkoutResults } from "../App";
+import "./ResultsView.css";
 
 interface ResultsViewProps {
   results: WorkoutResults;
@@ -8,17 +8,17 @@ interface ResultsViewProps {
 
 export default function ResultsView({ results, onReset }: ResultsViewProps) {
   const getScoreColor = (score: number) => {
-    if (score >= 80) return 'good';
-    if (score >= 60) return 'fair';
-    return 'poor';
+    if (score >= 80) return "good";
+    if (score >= 60) return "fair";
+    return "poor";
   };
 
   const exerciseNames: Record<string, string> = {
-    'pushups': 'Push-ups',
-    'jumping-jacks': 'Jumping Jacks',
-    'pullups': 'Pull-ups',
-    'squats': 'Squats',
-    'russian-twists': 'Russian Twists',
+    pushups: "Push-ups",
+    "jumping-jacks": "Jumping Jacks",
+    pullups: "Pull-ups",
+    squats: "Squats",
+    "russian-twists": "Russian Twists",
   };
 
   return (

@@ -1,10 +1,15 @@
-import { useState } from 'react';
-import ExerciseSelector from './components/ExerciseSelector';
-import CameraView from './components/CameraView';
-import ResultsView from './components/ResultsView';
-import './App.css';
+import { useState } from "react";
+import ExerciseSelector from "./components/ExerciseSelector";
+import CameraView from "./components/CameraView";
+import ResultsView from "./components/ResultsView";
+import "./App.css";
 
-export type Exercise = 'pushups' | 'jumping-jacks' | 'pullups' | 'squats' | 'russian-twists';
+export type Exercise =
+  | "pushups"
+  | "jumping-jacks"
+  | "pullups"
+  | "squats"
+  | "lunges";
 
 export interface RepResult {
   repNumber: number;
@@ -19,25 +24,27 @@ export interface WorkoutResults {
   overallNotes: string[];
 }
 
-type AppState = 'selection' | 'analyzing' | 'results';
+type AppState = "selection" | "analyzing" | "results";
 
 export default function App() {
-  const [state, setState] = useState<AppState>('selection');
-  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const [state, setState] = useState<AppState>("selection");
+  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(
+    null
+  );
   const [results, setResults] = useState<WorkoutResults | null>(null);
 
   const handleStartAnalysis = (exercise: Exercise) => {
     setSelectedExercise(exercise);
-    setState('analyzing');
+    setState("analyzing");
   };
 
   const handleStopAnalysis = (workoutResults: WorkoutResults) => {
     setResults(workoutResults);
-    setState('results');
+    setState("results");
   };
 
   const handleReset = () => {
-    setState('selection');
+    setState("selection");
     setSelectedExercise(null);
     setResults(null);
   };
@@ -49,22 +56,16 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        {state === 'selection' && (
+        {state === "selection" && (
           <ExerciseSelector onStart={handleStartAnalysis} />
         )}
 
-        {state === 'analyzing' && selectedExercise && (
-          <CameraView 
-            exercise={selectedExercise} 
-            onStop={handleStopAnalysis}
-          />
+        {state === "analyzing" && selectedExercise && (
+          <CameraView exercise={selectedExercise} onStop={handleStopAnalysis} />
         )}
 
-        {state === 'results' && results && (
-          <ResultsView 
-            results={results} 
-            onReset={handleReset}
-          />
+        {state === "results" && results && (
+          <ResultsView results={results} onReset={handleReset} />
         )}
       </main>
     </div>

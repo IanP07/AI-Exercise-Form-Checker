@@ -1,17 +1,17 @@
-import { useState } from 'react';
-import type { Exercise } from '../App';
-import './ExerciseSelector.css';
+import { useState } from "react";
+import type { Exercise } from "../App";
+import "./ExerciseSelector.css";
 
 interface ExerciseSelectorProps {
   onStart: (exercise: Exercise) => void;
 }
 
 const exercises: { id: Exercise; name: string; icon: string }[] = [
-  { id: 'pushups', name: 'Push-ups', icon: '💪' },
-  { id: 'jumping-jacks', name: 'Jumping Jacks', icon: '🤸' },
-  { id: 'pullups', name: 'Pull-ups', icon: '🏋️' },
-  { id: 'squats', name: 'Squats', icon: '🦵' },
-  { id: 'russian-twists', name: 'Russian Twists', icon: '🔄' },
+  { id: "pushups", name: "Push-ups", icon: "" },
+  { id: "jumping-jacks", name: "Jumping Jacks", icon: "" },
+  { id: "pullups", name: "Pull-ups", icon: "" },
+  { id: "squats", name: "Squats", icon: "" },
+  { id: "lunges", name: "Lunges", icon: "" },
 ];
 
 export default function ExerciseSelector({ onStart }: ExerciseSelectorProps) {
@@ -30,7 +30,9 @@ export default function ExerciseSelector({ onStart }: ExerciseSelectorProps) {
         {exercises.map((exercise) => (
           <button
             key={exercise.id}
-            className={`exercise-card ${selected === exercise.id ? 'selected' : ''}`}
+            className={`exercise-card ${
+              selected === exercise.id ? "selected" : ""
+            }`}
             onClick={() => setSelected(exercise.id)}
           >
             <span className="exercise-icon">{exercise.icon}</span>
