@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import type { Exercise, WorkoutResults, RepResult } from "../App";
 import "./CameraView.css";
 import { io, Socket } from "socket.io-client";
+import { Pose, POSE_CONNECTIONS } from "@mediapipe/pose";
+// @ts-ignore - drawing_utils has no TypeScript types
+import * as drawingUtils from "@mediapipe/drawing_utils";
 
 interface CameraViewProps {
   exercise: Exercise;
@@ -12,6 +15,11 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const socketRef = useRef<Socket | null>(null);
+  const poseRef = useRef<Pose | null>(null);
+  const poseResultsRef = useRef<any | null>(null);
+  const poseReadyRef = useRef(false);
+  const isFlippingRef = useRef(false);
+  const poseErroredRef = useRef(false);
 
   const [repCount, setRepCount] = useState(0);
   const [currentScore, setCurrentScore] = useState(100);
@@ -20,6 +28,56 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
   const [useDemoMode, setUseDemoMode] = useState(true);
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [mirrorVideo, setMirrorVideo] = useState(false);
+  // ---------------------- MEDIAPIPE POSE SETUP ----------------------
+  useEffect(() => {
+    console.log("POSE EFFECT RUNNING, cameraEnabled =", cameraEnabled);
+
+    if (!cameraEnabled || poseRef.current) return;
+
+    const pose = new Pose({
+      locateFile: (file) =>
+        `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+    });
+
+    pose.setOptions({
+      modelComplexity: 1,
+      smoothLandmarks: true,
+      enableSegmentation: false,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5,
+    });
+
+    pose.onResults((results: any) => {
+      poseResultsRef.current = results;
+      console.log("Pose results:", results.poseLandmarks?.length, "landmarks");
+    });
+
+    // IMPORTANT: wait for Pose to finish initializing its internal graph
+    // before allowing calls to `send`, otherwise the WASM backend can abort.
+    (pose as any)
+      .initialize?.()
+      ?.then(() => {
+        console.log("Pose initialized and ready.");
+        poseReadyRef.current = true;
+      })
+      .catch((err: any) => {
+        console.error("Pose initialize error:", err);
+        poseReadyRef.current = false;
+      });
+
+    poseRef.current = pose;
+
+    return () => {
+      if (poseRef.current) {
+        poseRef.current.close();
+        poseRef.current = null;
+      }
+      poseResultsRef.current = null;
+      poseReadyRef.current = false;
+      isFlippingRef.current = false;
+      poseErroredRef.current = false;
+    };
+  }, [cameraEnabled]);
 
   // NEW: which camera to use ("user" = front, "environment" = back)
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
@@ -61,6 +119,9 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
 
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        videoRef.current.onloadedmetadata = () => {
+          isFlippingRef.current = false;
+        };
 
         setIsProcessing(false);
         setCameraError(null);
@@ -83,6 +144,8 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
           .getTracks()
           .forEach((t) => t.stop());
       }
+      isFlippingRef.current = false;
+      poseErroredRef.current = false;
     };
   }, [cameraEnabled, facingMode]); // facingMode triggers re-initialization
 
@@ -128,13 +191,32 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
     const interval = 1000 / sendFPS;
     let lastSent = 0;
 
-    const loop = (timestamp: number) => {
-      if (!ctx || !videoRef.current) return;
+    const loop = async (timestamp: number) => {
+      const video = videoRef.current;
 
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+      // If we don't have a video element, just schedule the next frame
+      if (!video) {
+        requestAnimationFrame(loop);
+        return;
+      }
 
-      // Mirror ONLY front camera
+      // If we're in the middle of flipping cameras, skip sending frames to MediaPipe
+      if (isFlippingRef.current || poseErroredRef.current) {
+        requestAnimationFrame(loop);
+        return;
+      }
+
+      const { videoWidth, videoHeight } = video;
+
+      // Avoid sending frames while the video element has no valid dimensions yet
+      if (!videoWidth || !videoHeight) {
+        requestAnimationFrame(loop);
+        return;
+      }
+
+      canvas.width = videoWidth;
+      canvas.height = videoHeight;
+
       ctx.save();
 
       if (mirrorVideo) {
@@ -142,7 +224,20 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
         ctx.scale(-1, 1);
       }
 
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      // Draw raw camera image
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Draw pose wireframe on top if we have landmarks
+      const results = poseResultsRef.current;
+      if (results && results.poseLandmarks) {
+        drawingUtils.drawConnectors(
+          ctx,
+          results.poseLandmarks,
+          POSE_CONNECTIONS,
+          { color: "#22c55e", lineWidth: 3 }
+        );
+      }
+
       ctx.restore();
 
       if (timestamp - lastSent > interval) {
@@ -153,6 +248,15 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
         if (socketRef.current) {
           socketRef.current.emit("frame", { image: base64 });
         }
+      }
+
+      try {
+        // Send the frame to your pose solution / landmarker
+        await poseRef.current?.send({ image: video });
+      } catch (err) {
+        console.error("Pose send error, disabling further processing", err);
+        // Mark that pose has errored so we stop hammering the WASM graph
+        poseErroredRef.current = true;
       }
 
       requestAnimationFrame(loop);
@@ -213,6 +317,18 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
 
   // ---------------------- FLIP CAMERA BUTTON ----------------------
   const flipCamera = () => {
+    const video = videoRef.current;
+
+    // Mark that we're in the middle of a flip; the loop will skip frames until the new stream is ready
+    isFlippingRef.current = true;
+    poseErroredRef.current = false;
+
+    // Stop existing stream tracks so the browser can attach a new one cleanly
+    if (video && video.srcObject instanceof MediaStream) {
+      video.srcObject.getTracks().forEach((t) => t.stop());
+      video.srcObject = null;
+    }
+
     setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
   };
 
