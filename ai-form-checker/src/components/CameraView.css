@@ -179,7 +179,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 5px 20px rgba(239, 68, 68, 0.3);
+  /* box-shadow: 0 5px 20px rgba(239, 68, 68, 0.3); */
 }
 
 .stop-button:hover {
