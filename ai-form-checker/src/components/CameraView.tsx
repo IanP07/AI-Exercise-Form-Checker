@@ -205,7 +205,7 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const sendFPS = 10;
+    const sendFPS = 20;
     const interval = 1000 / sendFPS;
     let lastSent = 0;
 
