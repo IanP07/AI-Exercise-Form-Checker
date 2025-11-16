@@ -37,6 +37,7 @@ max_knee_dist = 0
 # -----------------------------
 # Thresholds
 # -----------------------------
+
 # Push-ups
 PUSHUP_DOWN, PUSHUP_UP = 90, 160
 
@@ -186,14 +187,14 @@ def process_frame(data):
             if rep_stage != "down":
                 min_knee_angle = 180
 
-            # DOWN phase
+            # Down phase
             if knee <= 110 and rep_stage != "down":
                 rep_stage = "down"
                 min_knee_angle = knee
             elif knee <= 110 and rep_stage == "down":
                 min_knee_angle = min(min_knee_angle, knee)
 
-            # UP phase → rep finishes
+            # Up phase & rep finishes
             elif knee > 110 and rep_stage == "down":
                 rep_stage = "up"
                 rep_count += 1
@@ -226,19 +227,19 @@ def process_frame(data):
             if rep_stage != "down":
                 min_elbow_angle = 999
 
-            # DOWN PHASE
+            # Down stage
             if elbow_angle <= 90 and rep_stage != "down":
                 rep_stage = "down"
                 min_elbow_angle = elbow_angle
             elif elbow_angle <= 90 and rep_stage == "down":
                 min_elbow_angle = min(min_elbow_angle, elbow_angle)
 
-            # UP PHASE → rep finishes
+            # Up stage and rep finishes
             elif elbow_angle >= 150 and rep_stage == "down":
                 rep_stage = "up"
                 rep_count += 1
 
-                # ---- SCORING ----
+                # Scoring
                 score = linear_score(min_elbow_angle, good_threshold=70, bad_threshold=150, invert=True)
                 feedback = "Good push-up" if score > 50 else "Bad push-up"
                 rep_scores.append(score)
@@ -267,25 +268,22 @@ def process_frame(data):
 
             global max_knee_dist
 
-            # Track max knee distance while in "up" stage
+            # Track max knee distance while in up stage
             if rep_stage == "up":
                 max_knee_dist = max(max_knee_dist, knee_dist)
 
-            # Detect UP phase
+            # Detect up stage
             if knee_dist > JJ_KNEE_UP and hand_height < JJ_HAND_HEIGHT and rep_stage != "up":
                 rep_stage = "up"
                 max_knee_dist = knee_dist  # reset at start of rep
 
-            # Detect DOWN phase → rep finished
+            # Detect down phase & rep finished
             if (knee_dist < JJ_KNEE_DOWN or hand_height > JJ_HAND_HEIGHT) and rep_stage == "up":
                 rep_stage = "down"
                 rep_count += 1
 
-                # -------------------
-                # Linear scoring between 10 (bad) and 100 (good)
-                # Define your min and max for knee distance
-                MIN_DIST = 0.06  # corresponds to Bad
-                MAX_DIST = 0.12  # corresponds to Good
+                MIN_DIST = 0.06  # corresponds to bad
+                MAX_DIST = 0.12  # corresponds to good
 
                 # Clamp and normalize
                 dist_clamped = max(MIN_DIST, min(MAX_DIST, max_knee_dist))
@@ -349,10 +347,8 @@ def process_frame(data):
                 rep_stage = "up"
                 rep_count += 1
                 frame_scores.clear()
-
-                # ---- Linear scoring based on old thresholds ----
-                MIN_ANGLE = 70  # deep lunge → 100
-                MAX_ANGLE = 80  # shallow → 50
+                MIN_ANGLE = 70
+                MAX_ANGLE = 80
                 angle_clamped = max(MIN_ANGLE, min(MAX_ANGLE, min_knee_angle))
                 score = 50 + (MAX_ANGLE - angle_clamped) / (MAX_ANGLE - MIN_ANGLE) * (100 - 50)
 
