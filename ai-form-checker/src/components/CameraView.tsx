@@ -17,7 +17,6 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
   const socketRef = useRef<Socket | null>(null);
   const poseRef = useRef<Pose | null>(null);
   const poseResultsRef = useRef<any | null>(null);
-  const poseReadyRef = useRef(false);
   const isFlippingRef = useRef(false);
   const poseErroredRef = useRef(false);
 
@@ -52,18 +51,6 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
       console.log("Pose results:", results.poseLandmarks?.length, "landmarks");
     });
 
-    // IMPORTANT: wait for Pose to finish initializing its internal graph
-    // before allowing calls to `send`, otherwise the WASM backend can abort.
-    (pose as any)
-      .initialize?.()
-      ?.then(() => {
-        console.log("Pose initialized and ready.");
-        poseReadyRef.current = true;
-      })
-      .catch((err: any) => {
-        console.error("Pose initialize error:", err);
-        poseReadyRef.current = false;
-      });
 
     poseRef.current = pose;
 
@@ -73,7 +60,6 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
         poseRef.current = null;
       }
       poseResultsRef.current = null;
-      poseReadyRef.current = false;
       isFlippingRef.current = false;
       poseErroredRef.current = false;
     };
