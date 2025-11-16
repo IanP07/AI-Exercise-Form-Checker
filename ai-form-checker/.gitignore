@@ -1,4 +1,6 @@
+# ------------------------------------------------------
 # Logs
+# ------------------------------------------------------
 logs
 *.log
 npm-debug.log*
@@ -7,18 +9,107 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# ------------------------------------------------------
+# Node.js outputs
+# ------------------------------------------------------
+node_modules/
+dist/
+dist-ssr/
 *.local
 
+# ------------------------------------------------------
+# Python
+# ------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.env/
+.env.*
+.venv/
+venv.bak/
+
+# Package build artifacts
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Byte-compiled / optimized / DLL files
+*.so
+*.dylib
+*.dll
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+coverage.xml
+*.cover
+*.py,cover
+.cache/
+pytest_cache/
+
+# ------------------------------------------------------
+# Environment and config
+# ------------------------------------------------------
+.env
+.env.*
+*.env
+*.ini
+*.cfg
+*.toml
+*.envrc
+
+# ------------------------------------------------------
 # Editor directories and files
+# ------------------------------------------------------
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# ------------------------------------------------------
+# OS / temp files
+# ------------------------------------------------------
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+*.tmp
+*.temp
+
+# ------------------------------------------------------
+# Optional: Docker
+# ------------------------------------------------------
+docker-compose.override.yml
+*.pid
+.cache/
+
+# ------------------------------------------------------
+# Optional: local data / runtime files
+# ------------------------------------------------------
+*.sqlite3
+*.db
+*.log
+tmp/
