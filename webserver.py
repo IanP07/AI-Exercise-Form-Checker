@@ -5,7 +5,7 @@ from flask import Flask
 from flask_socketio import SocketIO, emit
 import mediapipe as mp
 import threading
-import queu
+import queue
 
 # -----------------------------
 # Flask + WebSocket Setup
@@ -30,12 +30,14 @@ frame_scores = []
 rep_scores = []
 lock = threading.Lock()
 frame_queue = queue.Queue()
-min_knee_angle = None  # Track lowest knee angle per squat/lunge rep
+min_knee_angle = None
 min_elbow_angle = 999
+max_knee_dist = 0
 
 # -----------------------------
 # Thresholds
 # -----------------------------
+
 # Push-ups
 PUSHUP_DOWN, PUSHUP_UP = 90, 160
 
@@ -50,7 +52,7 @@ SQUAT_MEDIOCRE = 110
 SQUAT_UP = 170
 
 # Lunges
-LUNGE_ANGLE_THRESHOLD = 120  # knee angle to detect downward phase
+LUNGE_ANGLE_THRESHOLD = 120
 
 # Key landmarks for visibility check
 KEY_LANDMARKS = [
@@ -120,6 +122,25 @@ def is_pose_visible(landmarks, visibility_threshold=0.5, required_ratio=0.6):
     visible_count = sum([1 for lm in KEY_LANDMARKS if landmarks[lm.value].visibility >= visibility_threshold])
     return (visible_count / len(KEY_LANDMARKS)) >= required_ratio
 
+# ------------------------
+# Linear Scoring
+# ------------------------
+def linear_score(value, good_threshold, bad_threshold, invert=False):
+    if invert:
+        if value <= good_threshold:
+            return 100
+        elif value >= bad_threshold:
+            return 10
+        else:
+            return 10 + (bad_threshold - value) / (bad_threshold - good_threshold) * 90
+    else:
+        if value >= good_threshold:
+            return 100
+        elif value <= bad_threshold:
+            return 10
+        else:
+            return 10 + (value - bad_threshold) / (good_threshold - bad_threshold) * 90
+
 # -----------------------------
 # WebSocket Frame Handler
 # -----------------------------
@@ -128,7 +149,7 @@ last_pose_visible = True
 @socketio.on("frame")
 def process_frame(data):
     global rep_count, rep_stage, frame_scores, rep_scores, current_exercise
-    global last_pose_visible, min_knee_angle
+    global last_pose_visible, min_knee_angle, min_elbow_angle, max_knee_dist
 
     img_data = data.get("image")
     if not img_data:
@@ -161,17 +182,40 @@ def process_frame(data):
         # ------------------------
         if current_exercise == "Squats":
             knee = min(angles["knee_l"], angles["knee_r"])
+
+            # Reset min_knee_angle at start of rep
             if rep_stage != "down":
                 min_knee_angle = 180
-            if knee <= 110:
+
+            # Down phase
+            if knee <= 110 and rep_stage != "down":
                 rep_stage = "down"
+                min_knee_angle = knee
+            elif knee <= 110 and rep_stage == "down":
                 min_knee_angle = min(min_knee_angle, knee)
+
+            # Up phase & rep finishes
             elif knee > 110 and rep_stage == "down":
                 rep_stage = "up"
                 rep_count += 1
                 frame_scores.clear()
-                print(f"[Squat] Rep {rep_count} completed")
+
+                # Linear scoring (smaller angle = better)
+                score = linear_score(min_knee_angle, good_threshold=70, bad_threshold=110, invert=True)
+                feedback = "Good squat" if score > 50 else "Shallow squat"
+                rep_scores.append(score)
+
+                emit("update", {
+                    "rep_count": rep_count,
+                    "score": int(score),
+                    "feedback": feedback,
+                    "exercise": current_exercise
+                })
+
+                print(f"[Squat] Rep {rep_count}: {feedback} | min knee {min_knee_angle:.1f}")
+
             frame_scores.append(100)
+
         elif current_exercise == "Push-ups":
             global min_elbow_angle
 
@@ -179,45 +223,35 @@ def process_frame(data):
             elbow_r = angles["elbow_r"]
             elbow_angle = min(elbow_l, elbow_r)
 
-            # Safety: always ensure variable exists
-            if 'min_elbow_angle' not in globals() or min_elbow_angle is None:
-                min_elbow_angle = 999
-
             # Reset at start of new rep
             if rep_stage != "down":
                 min_elbow_angle = 999
 
-            # DOWN PHASE
+            # Down stage
             if elbow_angle <= 90 and rep_stage != "down":
                 rep_stage = "down"
                 min_elbow_angle = elbow_angle
-
             elif elbow_angle <= 90 and rep_stage == "down":
                 min_elbow_angle = min(min_elbow_angle, elbow_angle)
 
-            # UP PHASE → rep finishes
+            # Up stage and rep finishes
             elif elbow_angle >= 150 and rep_stage == "down":
                 rep_stage = "up"
                 rep_count += 1
 
-                # ---- SCORING ----
-                if min_elbow_angle <= 70:
-                    score = 100
-                    feedback = "Good push-up"
-                else:
-                    score = 50
-                    feedback = "Bad push-up"
-
+                # Scoring
+                score = linear_score(min_elbow_angle, good_threshold=70, bad_threshold=150, invert=True)
+                feedback = "Good push-up" if score > 50 else "Bad push-up"
                 rep_scores.append(score)
 
                 emit("update", {
                     "rep_count": rep_count,
-                    "score": score,
+                    "score": int(score),
                     "feedback": feedback,
                     "exercise": current_exercise
                 })
 
-                print(f"[Push-up] Rep {rep_count}: {feedback} | min angle {min_elbow_angle}")
+                print(f"[Push-up] Rep {rep_count}: {feedback} | min angle {min_elbow_angle:.1f}")
 
             # UI overlay
             cv2.putText(frame, f"Elbow Angle: {elbow_angle:.1f}", (10, 150),
@@ -234,35 +268,42 @@ def process_frame(data):
 
             global max_knee_dist
 
-            # Track max knee distance while in "up" stage
+            # Track max knee distance while in up stage
             if rep_stage == "up":
                 max_knee_dist = max(max_knee_dist, knee_dist)
 
+            # Detect up stage
             if knee_dist > JJ_KNEE_UP and hand_height < JJ_HAND_HEIGHT and rep_stage != "up":
                 rep_stage = "up"
                 max_knee_dist = knee_dist  # reset at start of rep
+
+            # Detect down phase & rep finished
             if (knee_dist < JJ_KNEE_DOWN or hand_height > JJ_HAND_HEIGHT) and rep_stage == "up":
                 rep_stage = "down"
                 rep_count += 1
 
-                # -------------------
-                # Scoring based on leg distance
-                # -------------------
-                if max_knee_dist >= 0.12:
-                    score = 100
+                MIN_DIST = 0.06  # corresponds to bad
+                MAX_DIST = 0.12  # corresponds to good
+
+                # Clamp and normalize
+                dist_clamped = max(MIN_DIST, min(MAX_DIST, max_knee_dist))
+                score = 10 + (dist_clamped - MIN_DIST) / (MAX_DIST - MIN_DIST) * (100 - 10)
+                score = int(score)
+
+                # Feedback based on score thresholds
+                if score >= 85:
                     feedback = "Excellent form"
-                elif max_knee_dist >= 0.09:
-                    score = 90
+                elif score >= 60:
                     feedback = "Good form"
                 else:
-                    score = 60
                     feedback = "Shallow jump"
 
                 rep_scores.append(score)
 
+                # Emit update
                 emit("update", {
                     "rep_count": rep_count,
-                    "score": int(score),
+                    "score": score,
                     "feedback": feedback,
                     "exercise": current_exercise
                 })
@@ -274,7 +315,6 @@ def process_frame(data):
             frame_scores.append(100)
 
         elif current_exercise == "Lunges":
-            # Calculate knee angles
             left_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP.value]
             left_knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value]
             left_ankle = landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value]
@@ -296,7 +336,6 @@ def process_frame(data):
             right_knee_angle = knee_angle(right_hip, right_knee, right_ankle)
             knee_angle_used = min(left_knee_angle, right_knee_angle)
 
-            # Rep stage tracking
             if rep_stage != "down":
                 min_knee_angle = 180
             if knee_angle_used < LUNGE_ANGLE_THRESHOLD and rep_stage != "down":
@@ -304,37 +343,19 @@ def process_frame(data):
                 min_knee_angle = knee_angle_used
             elif knee_angle_used < LUNGE_ANGLE_THRESHOLD and rep_stage == "down":
                 min_knee_angle = min(min_knee_angle, knee_angle_used)
-            # Rep completed when knee rises
             elif knee_angle_used >= LUNGE_ANGLE_THRESHOLD and rep_stage == "down":
                 rep_stage = "up"
                 rep_count += 1
                 frame_scores.clear()
+                MIN_ANGLE = 70
+                MAX_ANGLE = 80
+                angle_clamped = max(MIN_ANGLE, min(MAX_ANGLE, min_knee_angle))
+                score = 50 + (MAX_ANGLE - angle_clamped) / (MAX_ANGLE - MIN_ANGLE) * (100 - 50)
 
-                # Calculate lunge score based on min knee angle
-                if min_knee_angle <= 70:
-                    rep_score = 100
-                    feedback = "Good lunge"
-                elif min_knee_angle <= 80:
-                    rep_score = 90
-                    feedback = "Good lunge"
-                else:
-                    rep_score = 50
-                    feedback = "Shallow lunge"
-
-                # Store score
-                rep_scores.append(rep_score)
-
-                # Emit update
-                emit("update", {
-                    "rep_count": rep_count,
-                    "score": int(rep_score),
-                    "feedback": feedback,
-                    "exercise": current_exercise
-                })
-
-                print(f"[Lunge] Rep {rep_count}: {feedback}")
-
-            frame_scores.append(100)
+                feedback = "Good lunge" if score > 50 else "Shallow lunge"
+                rep_scores.append(int(score))
+                emit("update", {"rep_count": rep_count, "score": int(score),
+                                "feedback": feedback, "exercise": current_exercise})
 
         # Draw landmarks
         mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
@@ -349,8 +370,6 @@ def process_frame(data):
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
     cv2.putText(frame, f"Score: {int(avg_score)}", (10, 110),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 255), 2)
-
-    # Overlay knee angle for lunges
     if current_exercise == "Lunges" and pose_visible:
         cv2.putText(frame, f"Knee Angle: {knee_angle_used:.1f}", (10, 150),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
