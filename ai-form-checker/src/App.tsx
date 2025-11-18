@@ -1,49 +1,10 @@
-import { useState } from "react";
-import ExerciseSelector from "./components/ExerciseSelector";
-import CameraView from "./components/CameraView";
-import ResultsView from "./components/ResultsView";
+import { Routes, Route } from "react-router-dom";
+import ExerciseSelection from "./pages/ExerciseSelection";
+import Analyze from "./pages/Analyze";
+import Results from "./pages/Results";
 import "./App.css";
 
-export type Exercise = "Push-ups" | "Jumping Jacks" | "Squats" | "Lunges";
-
-export interface RepResult {
-  repNumber: number;
-  score: number;
-  notes: string[];
-}
-
-export interface WorkoutResults {
-  exercise: Exercise;
-  reps: RepResult[];
-  overallScore: number;
-  overallNotes: string[];
-}
-
-type AppState = "selection" | "analyzing" | "results";
-
 export default function App() {
-  const [state, setState] = useState<AppState>("selection");
-  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(
-    null
-  );
-  const [results, setResults] = useState<WorkoutResults | null>(null);
-
-  const handleStartAnalysis = (exercise: Exercise) => {
-    setSelectedExercise(exercise);
-    setState("analyzing");
-  };
-
-  const handleStopAnalysis = (workoutResults: WorkoutResults) => {
-    setResults(workoutResults);
-    setState("results");
-  };
-
-  const handleReset = () => {
-    setState("selection");
-    setSelectedExercise(null);
-    setResults(null);
-  };
-
   return (
     <div className="app">
       <header className="app-header">
@@ -51,17 +12,11 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        {state === "selection" && (
-          <ExerciseSelector onStart={handleStartAnalysis} />
-        )}
-
-        {state === "analyzing" && selectedExercise && (
-          <CameraView exercise={selectedExercise} onStop={handleStopAnalysis} />
-        )}
-
-        {state === "results" && results && (
-          <ResultsView results={results} onReset={handleReset} />
-        )}
+        <Routes>
+          <Route path="/" element={<ExerciseSelection />} />
+          <Route path="/analyze/:exercise" element={<Analyze />} />
+          <Route path="/results" element={<Results />} />
+        </Routes>
       </main>
     </div>
   );

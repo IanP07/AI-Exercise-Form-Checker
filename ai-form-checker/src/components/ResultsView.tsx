@@ -1,4 +1,4 @@
-import type { WorkoutResults } from "../App";
+import type { WorkoutResults } from "../types";
 import "./ResultsView.css";
 
 interface ResultsViewProps {

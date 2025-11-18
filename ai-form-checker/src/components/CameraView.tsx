@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Exercise, WorkoutResults, RepResult } from "../App";
+import type { Exercise, WorkoutResults, RepResult } from "../types";
 import "./CameraView.css";
 import { io, Socket } from "socket.io-client";
 import { Pose, POSE_CONNECTIONS } from "@mediapipe/pose";
@@ -252,7 +252,7 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
           ctx,
           results.poseLandmarks,
           POSE_CONNECTIONS,
-          { color: "#22c55e", lineWidth: 3 }
+          { color: "#ffffffff", lineWidth: 3 }
         );
       }
 

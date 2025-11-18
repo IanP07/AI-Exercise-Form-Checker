@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Exercise } from "../App";
+import type { Exercise } from "../types";
 import "./ExerciseSelector.css";
 
 interface ExerciseSelectorProps {
