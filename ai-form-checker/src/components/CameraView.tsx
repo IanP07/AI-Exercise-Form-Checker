@@ -5,6 +5,7 @@ import { io, Socket } from "socket.io-client";
 import { Pose, POSE_CONNECTIONS } from "@mediapipe/pose";
 // @ts-ignore - drawing_utils has no TypeScript types
 import * as drawingUtils from "@mediapipe/drawing_utils";
+import { Cookies } from 'react-cookie'
 
 interface CameraViewProps {
   exercise: Exercise;
@@ -29,6 +30,10 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [mirrorVideo, setMirrorVideo] = useState(false);
   const [feedback, updateFeedback] = useState<string | null>(null);
+  const cookies = new Cookies();
+  const [cookieCamEnabled, setCookieCamEnabled] = useState<boolean>(()=>{
+    return cookies.get("cameraEnabled") === true;
+  });
   // ---------------------- MEDIAPIPE POSE SETUP ----------------------
   useEffect(() => {
     console.log("POSE EFFECT RUNNING, cameraEnabled =", cameraEnabled);
@@ -71,6 +76,14 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
 
   const repDataRef = useRef<RepResult[]>([]);
 
+  useEffect(() => {
+    // If cookie exists and is truthy, auto-enable camera and exit demo mode
+    if (cookieCamEnabled) {
+      setCameraEnabled(true);
+      setUseDemoMode(false);
+    }
+  }, [cookieCamEnabled]);
+
   // ---------------------- DEMO MODE ----------------------
   useEffect(() => {
     if (useDemoMode) startDemoMode();
@@ -112,7 +125,8 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
 
         setIsProcessing(false);
         setCameraError(null);
-
+        cookies.set("cameraEnabled", true, {path: "/"})
+        setCookieCamEnabled(true);
         startCanvasTracking();
       } catch (error: any) {
         console.error("Camera error:", error);
@@ -371,9 +385,9 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
           }}
         />
         <canvas ref={canvasRef} className="pose-canvas" />
-
+        
         {/* Enable camera button */}
-        {useDemoMode && !cameraError && !isProcessing && (
+        {useDemoMode && !cameraError && !isProcessing && !cookieCamEnabled &&(
           <div className="camera-toggle">
             <button
               className="enable-camera-button"
