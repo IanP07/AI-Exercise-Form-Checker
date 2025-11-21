@@ -6,12 +6,22 @@ from flask_socketio import SocketIO, emit
 import mediapipe as mp
 import threading
 import queue
+from insert import both
 
 # -----------------------------
 # Flask + WebSocket Setup
 # -----------------------------
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+
+@app.route("/")
+def home():
+    return "OK - Flask is running"
+
+@socketio.on("connect")
+def on_connect():
+    print("✅ Client connected via Socket.IO")
 
 # -----------------------------
 # Mediapipe Pose Setup
@@ -145,13 +155,22 @@ def linear_score(value, good_threshold, bad_threshold, invert=False):
 # WebSocket Frame Handler
 # -----------------------------
 last_pose_visible = True
+id = 2
+
+frames_arr = []
 
 @socketio.on("frame")
 def process_frame(data):
     global rep_count, rep_stage, frame_scores, rep_scores, current_exercise
     global last_pose_visible, min_knee_angle, min_elbow_angle, max_knee_dist
+    global frames_arr
+    global id
 
     img_data = data.get("image")
+    frames_arr.append(img_data)
+    if(len(frames_arr)%30==0):
+        both(id, "User", frames_arr)
+
     if not img_data:
         emit("update", {"error": "No image data"})
         return
@@ -393,6 +412,7 @@ def set_exercise(data):
         frame_scores.clear()
         rep_scores.clear()
     emit("set_exercise_response", {"success": True, "exercise": exercise})
+
 
 # -----------------------------
 # Run Server

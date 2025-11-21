@@ -155,6 +155,7 @@ export default function CameraView({ exercise, onStop }: CameraViewProps) {
     if (!cameraEnabled) return;
 
     const socket = io(
+      // "http://localhost:5032",
       "https://shameka-unbridgeable-noncausally.ngrok-free.dev/",
       {
         transports: ["websocket"],
